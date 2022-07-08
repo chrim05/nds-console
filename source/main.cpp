@@ -42,7 +42,7 @@ int main()
     auto keyboardKey = keyboardUpdate();
 
     // when virtual key is pressed
-    if (keyboardKey != -1)
+    if (keyboardKey != NOKEY)
       console.processVirtualKey(keyboardKey);
     
     // updating the key state
@@ -62,7 +62,7 @@ int main()
       case KEY_A:     console.returnPrompt();                                break;
     }
 
-    console.flushPromptBuffer(frame);
+    console.flushPromptBuffer(frame, true);
     swiWaitForVBlank();
 	}
 

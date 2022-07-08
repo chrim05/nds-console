@@ -61,7 +61,8 @@ main.o: /home/christallo/repos/nds-console/source/main.cpp \
  /opt/devkitpro/libnds/include/nds/arm9/nand.h \
  /home/christallo/repos/nds-console/source/basics.h \
  /home/christallo/repos/nds-console/source/console.h \
- /opt/devkitpro/libnds/include/nds/arm9/console.h
+ /opt/devkitpro/libnds/include/nds/arm9/console.h \
+ /home/christallo/repos/nds-console/source/nscript.h
 /opt/devkitpro/libnds/include/nds.h:
 /opt/devkitpro/libnds/include/nds/libversion.h:
 /opt/devkitpro/libnds/include/nds/ndstypes.h:
@@ -125,3 +126,4 @@ main.o: /home/christallo/repos/nds-console/source/main.cpp \
 /home/christallo/repos/nds-console/source/basics.h:
 /home/christallo/repos/nds-console/source/console.h:
 /opt/devkitpro/libnds/include/nds/arm9/console.h:
+/home/christallo/repos/nds-console/source/nscript.h:

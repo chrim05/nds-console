@@ -1,5 +1,5 @@
-console.o: /home/christallo/repos/nds-console/source/console.cpp \
- /home/christallo/repos/nds-console/source/console.h \
+nscript.o: /home/christallo/repos/nds-console/source/nscript.cpp \
+ /home/christallo/repos/nds-console/source/nscript.h \
  /opt/devkitpro/libnds/include/nds.h \
  /opt/devkitpro/libnds/include/nds/libversion.h \
  /opt/devkitpro/libnds/include/nds/ndstypes.h \
@@ -60,10 +60,8 @@ console.o: /home/christallo/repos/nds-console/source/console.cpp \
  /opt/devkitpro/libnds/include/nds/arm9/video.h \
  /opt/devkitpro/libnds/include/nds/arm9/videoGL.h \
  /opt/devkitpro/libnds/include/nds/arm9/nand.h \
- /opt/devkitpro/libnds/include/nds/arm9/console.h \
- /home/christallo/repos/nds-console/source/basics.h \
- /home/christallo/repos/nds-console/source/nscript.h
-/home/christallo/repos/nds-console/source/console.h:
+ /home/christallo/repos/nds-console/source/basics.h
+/home/christallo/repos/nds-console/source/nscript.h:
 /opt/devkitpro/libnds/include/nds.h:
 /opt/devkitpro/libnds/include/nds/libversion.h:
 /opt/devkitpro/libnds/include/nds/ndstypes.h:
@@ -124,6 +122,4 @@ console.o: /home/christallo/repos/nds-console/source/console.cpp \
 /opt/devkitpro/libnds/include/nds/arm9/video.h:
 /opt/devkitpro/libnds/include/nds/arm9/videoGL.h:
 /opt/devkitpro/libnds/include/nds/arm9/nand.h:
-/opt/devkitpro/libnds/include/nds/arm9/console.h:
 /home/christallo/repos/nds-console/source/basics.h:
-/home/christallo/repos/nds-console/source/nscript.h:
