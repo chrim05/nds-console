@@ -192,7 +192,7 @@ namespace NScript
       this->exprIndex  = 0;
     }
 
-    public: Node parse()
+    public: inline Node parse()
     {
       // fetching the first token
       advance();
@@ -206,7 +206,7 @@ namespace NScript
       return expr;
     }
 
-    private: Node expectExpression()
+    private: inline Node expectExpression()
     {
       // expression     = sub_expression +|- sub_expression ...
       // sub_expression = term           *|/ term           ...
@@ -218,7 +218,7 @@ namespace NScript
       }, { NodeKind::Plus, NodeKind::Minus });
     }
 
-    private: Node expectTokenAndAdvance(NodeKind kind)
+    private: inline Node expectTokenAndAdvance(NodeKind kind)
     {
       if (curToken.kind != kind)
         throw ParserError({"expected `", Node::kindToString(kind), "` (found `", curToken.toString(), "`)"}, curToken.pos);
@@ -228,75 +228,7 @@ namespace NScript
       return prevToken;
     }
 
-    private: Node collectCallNode(Node name)
-    {
-      if (name.kind != NodeKind::Identifier && name.kind != NodeKind::ConstString)
-        throw ParserError({"expected string or identifier call name"}, name.pos);
-      
-      auto startPos = curToken.pos.startPos;
-      auto args     = std::vector<Node>();
-
-      // eating first `(`
-      advance();
-
-      while (true)
-      {
-        if (eofToken())
-          throw ParserError({"unclosed call parameters list"}, Position(startPos, prevToken.pos.endPos));
-        
-        if (curToken.kind == NodeKind::RPar)
-        {
-          // eating last `)`
-          advance();
-          return Node(NodeKind::Call, (NodeValue) { .call = new CallNode(name, args) }, Position(name.pos.startPos, prevToken.pos.endPos));
-        }
-        
-        // when this is not the first arg
-        if (args.size() > 0)
-          expectTokenAndAdvance(NodeKind::Comma);
-        
-        args.push_back(expectExpression());
-      }
-    }
-
-    private: Node expectTerm()
-    {
-      Node op;
-      Node term;
-
-      switch (getCurAndAdvance().kind)
-      {
-        // simple token
-        case NodeKind::Identifier:
-        case NodeKind::ConstNum:
-        case NodeKind::ConstString:
-          term = prevToken;
-          break;
-
-        // unary expression = +|- term
-        case NodeKind::Plus:
-        case NodeKind::Minus:
-          op   = prevToken;
-          term = expectTerm();
-          term = Node(NodeKind::Una, (NodeValue) { .una = new UnaNode(term, op) }, Position(op.pos.startPos, term.pos.endPos));
-          break;
-        
-        case NodeKind::LPar:
-          term = expectExpression();
-          expectTokenAndAdvance(NodeKind::RPar);
-          break;
-        
-        default:
-          throw ParserError({"unexpected token (found `", prevToken.toString(), "`)"}, prevToken.pos);
-      }
-
-      if (curToken.kind == NodeKind::LPar)
-        term = collectCallNode(term);
-      
-      return term;
-    }
-
-    private: template<typename T> bool arrayContains(std::vector<T> array, T elem)
+    private: template<typename T> inline bool arrayContains(std::vector<T> array, T elem)
     {
       for (const auto& e : array)
         if (e == elem)
@@ -305,23 +237,9 @@ namespace NScript
       return false;
     }
 
-    private: Node expectBinaryOrTerm(std::function<Node()> expector, std::vector<NodeKind> operators)
-    {
-      auto left = expector();
+    private: Node expectBinaryOrTerm(std::function<Node()> expector, std::vector<NodeKind> operators);
 
-      // as long as matches one of the required operators, collects the right value and replaces the left one with a BinNode
-      while (!eofToken() && arrayContains(operators, curToken.kind))
-      {
-        auto op = getCurAndAdvance();
-        auto right = expector();
-
-        left = Node(NodeKind::Bin, (NodeValue) { .bin = new BinNode(left, right, op) }, Position(left.pos.startPos, right.pos.endPos));
-      }
-
-      return left;
-    }
-
-    private: Node advance()
+    private: inline Node advance()
     {
       prevToken = curToken;
       curToken  = nextToken();
@@ -372,71 +290,20 @@ namespace NScript
       return (!isFirstChar && (c == '_' || isNumChar(c, true))) || isAlpha(c);
     }
 
-    private: void eatWhitespaces()
+    private: inline void eatWhitespaces()
     {
       while (!eof() && isWhitespace(curChar()))
         exprIndex++;
     }
 
-    private: Node getCurAndAdvance()
+    private: inline Node getCurAndAdvance()
     {
       advance();
 
       return prevToken;
     }
     
-    private: std::string collectSequence(std::function<bool()> checker)
-    {
-      auto r = std::string();
-
-      // as long as it matches a certain character, adds the latter to the string
-      while (!eof() && checker())
-      {
-        r.push_back(curChar());
-        exprIndex++;
-      }
-
-      // going back to the last char of sequence
-      exprIndex--;
-
-      return r;
-    }
-
-    private: Node collectIdentifierToken()
-    {
-      auto startPos = exprIndex;
-      
-      // cstringRealloc is called to have the guarantee that the pointer will not be implicitly deallocated in any case.
-      // from https://codeql.github.com/codeql-query-help/cpp/cpp-return-c-str-of-std-string/
-      // ```
-      //  The pointer is only safe to use while the std::string is still in scope.
-      //  When the std::string goes out of scope, its destructor is called and the memory is deallocated, so it is no longer safe to use the pointer.
-      // ```
-      auto value    = (NodeValue) {
-        .str = cstringRealloc(collectSequence([this] {
-          return isIdentifierChar(curChar(), false);
-        }).c_str())
-      };
-
-      return Node(NodeKind::Identifier, value, Position(startPos, exprIndex + 1));
-    }
-
-    private: Node convertToKeywordWhenPossible(Node token)
-    {
-      return token;
-
-      // if (token.kind != NodeKind::Identifier)
-      //  return token;
-      
-      // if (token.value.str == std::string("true"))
-      //   token.kind = NodeKind::True;
-      // else if (token.value.str == std::string("false"))
-      //   token.kind = NodeKind::False;
-
-      // return token;
-    }
-
-    private: uint64_t countOccurrences(std::string s, char toCheck)
+    private: inline uint64_t countOccurrences(std::string s, char toCheck)
     {
       uint64_t t = 0;
 
@@ -444,39 +311,6 @@ namespace NScript
         t += !!(c == toCheck);
       
       return t;
-    }
-
-    private: Node collectNumToken()
-    {
-      auto startPos = exprIndex;
-      auto seq      = collectSequence([this] {
-        return isNumChar(curChar(), false);
-      });
-      auto pos      = Position(startPos, exprIndex + 1);
-
-      // inconsistent numbers like 0.0.1 or 1.2.3 etc
-      if (countOccurrences(seq, '.') > 1)
-        throw ParserError({"number cannot include more than one dot"}, pos);
-      
-      // when the user wrote something like 0. or 2. etc
-      if (seq[seq.length() - 1] == '.')
-        throw ParserError(
-          {"number cannot end with a dot (correction: `", seq.substr(0, seq.length() - 1), "`)"},
-          pos
-        );
-      
-      auto value = (NodeValue) {
-        .num = atof(seq.c_str())
-      };
-
-      // when the next char is an identifier, the user wrote something like 123hello or 123_
-      if (!eof(+1) && isIdentifierChar(curChar(+1), false))
-        throw ParserError(
-          {"number cannot include part of identifier (correction: `", seq, " ", std::string(1, curChar(+1)), "...`)"},
-          Position(pos.startPos, curPos(+1).endPos)
-        );
-
-      return Node(NodeKind::ConstNum, value, pos);
     }
 
     private: inline char escapeChar(char c, Position pos)
@@ -507,25 +341,7 @@ namespace NScript
       }
     }
 
-    private: std::string escapesToEscaped(std::string s, Position pos)
-    {
-      std::string t;
-
-      for (uint64_t i = 0; i < s.length(); i++)
-        if (s[i] == '\\')
-        {
-          t.push_back(escapeChar(s[i + 1], Position(pos.startPos + i, pos.startPos + i + 1)));
-
-          // skipping the escape code
-          i++;
-        }
-        else
-          t.push_back(s[i]);
-      
-      return t;
-    }
-    
-    public: static std::string escapedToEscapes(std::string s)
+    public: inline static std::string escapedToEscapes(std::string s)
     {
       std::string t;
 
@@ -535,50 +351,22 @@ namespace NScript
       return t;
     }
 
-    private: Node collectStringToken()
-    {
-      // eating first `'`
-      exprIndex++;
+    private: Node collectCallNode(Node name);
 
-      auto startPos = exprIndex - 1;
-      auto seq      = collectSequence([this] {
-        // any character except `'`, unless it's an escaped character
-        return curChar() != '\'' || (curChar(-1) == '\\' && curChar(-2) != '\\');
-      });
-      auto pos = Position(startPos, exprIndex + 2);
+    private: Node expectTerm();
 
-      // eating the last char of string
-      // moving to the last `'`
-      exprIndex++;
+    private: std::string collectSequence(std::function<bool()> checker);
 
-      if (eof())
-        throw ParserError({"unclosed string"}, Position(startPos, exprIndex));
+    private: Node collectIdentifierToken();
 
-      return Node(NodeKind::ConstString, (NodeValue) { .str = cstringRealloc(escapesToEscaped(seq, pos).c_str()) }, pos);
-    }
+    private: Node convertToKeywordWhenPossible(Node token);
 
-    private: Node nextToken()
-    {
-      // eating all the whitespaces (they have no meaning)
-      eatWhitespaces();
+    private: Node collectNumToken();
 
-      if (eof())
-        return Node(NodeKind::Eof, curPos());
-      
-      auto c = curChar();
-      auto t = Node(curPos());
+    private: std::string escapesToEscaped(std::string s, Position pos);
+    
+    private: Node collectStringToken();
 
-      if (isIdentifierChar(c, true))
-        t = convertToKeywordWhenPossible(collectIdentifierToken());
-      else if (isNumChar(c, true))
-        t = collectNumToken();
-      else if (c == '\'')
-        t = collectStringToken();
-      else if (arrayContains({'+', '-', '*', '/', '(', ')', ','}, c))
-        t = Node(NodeKind(c), (NodeValue) { .str = cstringRealloc(std::string(1, c).c_str()) }, curPos());
-
-      exprIndex++;
-      return t;
-    }
+    private: Node nextToken();
   };
 }
