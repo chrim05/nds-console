@@ -74,6 +74,8 @@ class NDSConsole
     return "/ $ ";
   }
 
+  private: void printPromptParsingError(NScript::ParserError e);
+
   private: NScript::Node processCommand(std::string command);
 
   private: void printBlinkingCursor(uint64_t frame, bool printCursor);

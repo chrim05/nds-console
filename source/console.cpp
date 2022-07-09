@@ -75,7 +75,7 @@ void NDSConsole::removeChar()
   }
 
   // the letter to remove is inside the string
-  promptBuffer->erase(promptBuffer->begin() + promptCursorIndex--);
+  promptBuffer->erase(promptBuffer->begin() + --promptCursorIndex);
 }
 
 void NDSConsole::flushPromptBuffer(uint64_t frame, bool printCursor)
@@ -140,31 +140,59 @@ void NDSConsole::returnPrompt()
   // reprinting the current prompt buffer without the cursor
   flushPromptBuffer(1, false);
 
+  // going to the next line for the prompted command output
+  iprintf("\n");
+
+  try
+  {
+    // processing the prompted command
+    auto result = processCommand(*promptBuffer);
+    iprintf("\n%s\n", result.toString().c_str());
+  }
+  catch (const NScript::ParserError& e)
+  {
+    printPromptParsingError(e);
+  }
+
   // setting up the new prompt buffer
   // the old one is already saved on the top of recentPrompts
   this->promptBuffer      = new std::string();
   this->promptCursorIndex = 0;
   
-  recentPromptsIndex     += 1;
+  recentPromptsIndex      = recentPrompts.size();
   recentPrompts.push_back(promptBuffer);
-
-  // going to the next line for the prompted command output
-  iprintf("\n");
-
-  // processing the prompted command
-  auto result = processCommand(*recentPrompts.at(recentPrompts.size() - 2));
-  iprintf("\n\n[result: %s]\n", result.toString().c_str());
 
   // initializing the new prompt line
   printPromptPrefix();
+}
+
+void NDSConsole::printPromptParsingError(NScript::ParserError e)
+{
+  auto promptLength = getPromptPrefix().length();
+
+  // padding the error underlining
+  for (uint64_t i = 0; i < promptLength + e.position.startPos; i++)
+    iprintf(" ");
+
+  
+  // underlining the wrong part
+  for (uint64_t i = 0; i < e.position.length(); i++)
+    iprintf("-");
+  
+  // printing the error message
+  iprintf("\n\nerror: ");
+  for (const auto& m : e.message)
+    iprintf("%s", m.c_str());
+  
+  iprintf("\n");
 }
 
 NScript::Node NDSConsole::processCommand(std::string command)
 {
   NScript::Parser parser(command);
   return parser.parse();
+ 
   // NScript::Evaluator evaluator(parser);
-  
   // return evaluator.evaluate();
 }
 

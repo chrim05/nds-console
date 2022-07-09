@@ -16,7 +16,17 @@ inline void panic(std::string msg)
 
 inline cstring_t cstringRealloc(cstring_t s)
 {
+  // including the null terminator
   auto temp = new char[strlen(s) + 1];
 
   return strcpy(temp, s);
+}
+
+inline std::string cutTrailingZeros(std::string s)
+{
+  return s
+    // removing trailing zeros
+    .erase(s.find_last_not_of('0') + 1, std::string::npos)
+    // removing trailing dot
+    .erase(s.find_last_not_of('.') + 1, std::string::npos);
 }
