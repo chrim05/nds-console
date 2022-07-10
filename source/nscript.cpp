@@ -48,11 +48,12 @@ NScript::Node NScript::Parser::nextToken()
   eatWhitespaces();
 
   if (eof())
-    return Node(NodeKind::Eof, curPos());
+    return Node::eof(curPos());
   
   auto c = curChar();
-  auto t = Node(curPos());
+  auto t = Node();
 
+  // collecting token
   if (isIdentifierChar(c, true))
     t = convertToKeywordWhenPossible(collectIdentifierToken());
   else if (isNumChar(c, true))
@@ -61,6 +62,8 @@ NScript::Node NScript::Parser::nextToken()
     t = collectStringToken();
   else if (arrayContains({'+', '-', '*', '/', '(', ')', ',', '='}, c))
     t = Node(NodeKind(c), (NodeValue) { .str = cstringRealloc(std::string(1, c).c_str()) }, curPos());
+  else
+    t = Node::bad(cstringRealloc(std::string(1, c).c_str()), curPos());
 
   exprIndex++;
   return t;
@@ -179,8 +182,8 @@ NScript::Node NScript::Parser::expectBinaryOrTerm(std::function<Node()> expector
 
 NScript::Node NScript::Parser::expectTerm()
 {
-  Node op;
-  Node term;
+  auto op   = Node();
+  auto term = Node();
 
   switch (getCurAndAdvance().kind)
   {

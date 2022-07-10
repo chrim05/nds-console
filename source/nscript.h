@@ -76,16 +76,6 @@ namespace NScript
     public: NodeValue value;
     public: Position  pos;
 
-    public: Node()
-    {
-      *this = Node(Position());
-    }
-
-    public: Node(Position position)
-    {
-      *this = Node(NodeKind::Bad, position);
-    }
-
     public: Node(NodeKind kind, NodeValue value, Position pos)
     {
       this->kind  = kind;
@@ -93,14 +83,24 @@ namespace NScript
       this->pos   = pos;
     }
 
-    public: Node(NodeKind kind, Position position)
+    public: Node()
     {
-      *this = Node(kind, (NodeValue) { .none = 0 }, position);
+      *this = Node(NodeKind::Bad, (NodeValue) { .str = "<placeholder>" }, Position());
+    }
+
+    public: static Node bad(cstring_t str, Position pos)
+    {
+      return Node(NodeKind::Bad, (NodeValue) { .str = str }, pos);
+    }
+
+    public: static Node eof(Position pos)
+    {
+      return Node(NodeKind::Eof, (NodeValue) { .none = 0 }, pos);
     }
 
     public: static Node none(Position pos)
     {
-      return Node(NodeKind::None, pos);
+      return Node(NodeKind::None, (NodeValue) { .none = 0 }, pos);
     }
 
     public: static std::string kindToString(NodeKind kind)
