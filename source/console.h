@@ -36,6 +36,7 @@ class NDSConsole
   private: uint64_t                  maxReachedPromptLength;
   private: Keyboard*                 virtualKeyboard;
   private: PrintConsole*             printableConsole;
+  private: NScript::Evaluator        evaluator;
 
   public: NDSConsole(PrintConsole* printableConsole, Keyboard* virtalKeyboard)
   {
@@ -46,6 +47,7 @@ class NDSConsole
     this->maxReachedPromptLength = 0;
     this->virtualKeyboard        = virtualKeyboard;
     this->printableConsole       = printableConsole;
+    this->evaluator              = NScript::Evaluator();
 
     keyboardShow();
   }
@@ -74,7 +76,7 @@ class NDSConsole
     return "/ $ ";
   }
 
-  private: void printPromptParsingError(NScript::ParserError e);
+  private: void printPromptParsingError(NScript::Error e);
 
   private: NScript::Node processCommand(std::string command);
 

@@ -44,10 +44,12 @@ namespace NScript
     Bin,
     Una,
     Call,
+    Assign,
     Bad,
     Eof,
-    ConstNum,
-    ConstString,
+    None,
+    Num,
+    String,
     Identifier,
     Plus  = '+',
     Minus = '-',
@@ -56,11 +58,13 @@ namespace NScript
     LPar  = '(',
     RPar  = ')',
     Comma = ',',
+    Eq    = '=',
   };
 
   class BinNode;
   class UnaNode;
   class CallNode;
+  class AssignNode;
   
   union NodeValue
   {
@@ -69,7 +73,8 @@ namespace NScript
     public: BinNode*    bin;
     public: UnaNode*    una;
     public: CallNode*   call;
-    public: void_t      bad;
+    public: AssignNode* assign;
+    public: void_t      none;
   };
 
   class Node
@@ -97,24 +102,32 @@ namespace NScript
 
     public: Node(NodeKind kind, Position position)
     {
-      *this = Node(kind, (NodeValue) { .bad = 0 }, position);
+      *this = Node(kind, (NodeValue) { .none = 0 }, position);
+    }
+
+    public: static Node none(Position pos)
+    {
+      return Node(NodeKind::None, pos);
     }
 
     public: static std::string kindToString(NodeKind kind)
     {
       switch (kind)
       {
-        case NodeKind::ConstNum:    return "num";
-        case NodeKind::ConstString: return "str";
+        case NodeKind::Num:         return "num";
+        case NodeKind::String:      return "str";
         case NodeKind::Bin:         return "bin";
         case NodeKind::Una:         return "una";
         case NodeKind::Call:        return "call";
+        case NodeKind::Assign:      return "assign";
+        case NodeKind::None:        return "none";
         case NodeKind::Plus:
         case NodeKind::Minus:
         case NodeKind::Star:
         case NodeKind::LPar:
         case NodeKind::RPar:
         case NodeKind::Comma:
+        case NodeKind::Eq:
         case NodeKind::Slash:       return std::string(1, char(kind));
         case NodeKind::Identifier:  return "id";
         case NodeKind::Bad:         return "<bad>";
@@ -166,12 +179,24 @@ namespace NScript
     }
   };
 
-  class ParserError : std::exception
+  class AssignNode
+  {
+    public: Node name;
+    public: Node expr;
+
+    public: AssignNode(Node name, Node expr)
+    {
+      this->name = name;
+      this->expr = expr;
+    }
+  };
+
+  class Error : std::exception
   {
     public: std::vector<std::string> message;
     public: Position                 position;
 
-    public: ParserError(std::vector<std::string> message, Position position)
+    public: Error(std::vector<std::string> message, Position position)
     {
       this->message  = message;
       this->position = position;
@@ -180,7 +205,6 @@ namespace NScript
 
   class Parser
   {
-    
     private: std::string expression;
     private: uint64_t    exprIndex;
     private: Node        curToken;
@@ -221,7 +245,7 @@ namespace NScript
     private: inline Node expectTokenAndAdvance(NodeKind kind)
     {
       if (curToken.kind != kind)
-        throw ParserError({"expected `", Node::kindToString(kind), "` (found `", curToken.toString(), "`)"}, curToken.pos);
+        throw Error({"expected `", Node::kindToString(kind), "` (found `", curToken.toString(), "`)"}, curToken.pos);
       
       advance();
 
@@ -323,7 +347,7 @@ namespace NScript
         case 'n':  return '\n';
         case 't':  return '\t';
         case '0':  return '\0';
-        default:   throw ParserError({"unknown escaped char `\\", std::string(1, c), "`"}, pos);
+        default:   throw Error({"unknown escaped char `\\", std::string(1, c), "`"}, pos);
       }
     }
 
@@ -368,5 +392,189 @@ namespace NScript
     private: Node collectStringToken();
 
     private: Node nextToken();
+
+    private: Node collectAssignNode(Node name);
+  };
+
+  class Evaluator
+  {
+    private: std::vector<KeyPair<std::string, Node>> map;
+
+    public: Evaluator()
+    {
+      this->map = std::vector<KeyPair<std::string, Node>>();
+    }
+
+    public: Node evaluateNode(Node node)
+    {
+      switch (node.kind)
+      {
+        case NodeKind::Num:
+        case NodeKind::String:
+        case NodeKind::None:       return node;
+        case NodeKind::Bin:        return evaluateBin(*node.value.bin);
+        case NodeKind::Una:        return evaluateUna(*node.value.una);
+        case NodeKind::Identifier: return evaluateIdentifier(node);
+        case NodeKind::Assign:     return evaluateAssign(*node.value.assign, node.pos);
+        case NodeKind::Call:       return evaluateCall(*node.value.call, node.pos);
+        default:                   panic("unimplemented evaluateNode for some NodeKind"); return Node::none(node.pos);
+      }
+    }
+
+    private: Node evaluateIdentifier(Node identifier)
+    {
+      for (const auto& kv : map)
+        if (kv.key == std::string(identifier.value.str))
+          return kv.val;
+      
+      throw Error({"unknown variable"}, identifier.pos);
+    }
+
+    private: Node evaluateBin(BinNode bin)
+    {
+      auto left  = evaluateNode(bin.left);
+      auto right = evaluateNode(bin.right);
+
+      if (left.kind != right.kind)
+        throw Error(
+          {"unkwnon bin `", bin.op.toString(), "` between different types (`", Node::kindToString(left.kind), "` and `", Node::kindToString(right.kind), "`)"},
+          bin.op.pos
+        );
+      
+      switch (left.kind)
+      {
+        case NodeKind::Num:
+          left.value.num = evaluateOperationNum(bin.op.kind, left.value.num, right.value.num, right.pos);
+          break;
+        
+        case NodeKind::String:
+          left.value.str = evaluateOperationStr(bin.op, left.value.str, right.value.str);
+          break;
+
+        default:
+          throw Error(
+            {"type `", Node::kindToString(left.kind), "` does not support bin"},
+            bin.op.pos
+          );
+      }
+
+      left.pos.endPos = right.pos.endPos;
+      return left;
+    }
+
+    private: float64 evaluateOperationNum(NodeKind op, float64 l, float64 r, Position rPos)
+    {
+      switch (op)
+      {
+        case NodeKind::Plus:  return l + r;
+        case NodeKind::Minus: return l - r;
+        case NodeKind::Star:  return l * r;
+        case NodeKind::Slash:
+          if (r == 0)
+            throw Error({"dividing by 0"}, rPos);
+
+          return l / r;
+        
+        default: panic("unreachable"); return 0;
+      }
+    }
+
+    private: cstring_t evaluateOperationStr(Node op, cstring_t l, cstring_t r)
+    {
+      if (op.kind != NodeKind::Plus)
+        throw Error({"string does not support bin `", Node::kindToString(op.kind), "`"}, op.pos);
+
+      return cstringRealloc((std::string(l) + r).c_str());
+    }
+
+    private: Node evaluateUna(UnaNode una)
+    {
+      auto term = evaluateNode(una.term);
+
+      if (term.kind != NodeKind::Num)
+        throw Error({"type `", Node::kindToString(term.kind), "` does not support unary `", Node::kindToString(una.op.kind), "`"}, term.pos);
+      
+      term.value.num *= una.op.kind == NodeKind::Minus ? -1 : +1;
+      return term;
+    }
+
+    private: Node evaluateAssign(AssignNode assign, Position pos)
+    {
+      auto name = std::string(assign.name.value.str);
+      auto expr = evaluateNode(assign.expr);
+
+      for (uint64_t i = 0; i < map.size(); i++)
+        if (map[i].key == name)
+        {
+          // the variable is already declared (overwrites old value)
+          map[i].val = expr;
+          return Node::none(pos);
+        }
+
+      // the variable is not declared yet (appends a new definition)
+      map.push_back(KeyPair<std::string, Node>(name, expr));
+      return Node::none(pos);
+    }
+
+    private: Node evaluateCall(CallNode call, Position pos)
+    {
+      // when the call's name is a string, searches for a process with that filename
+      if (call.name.kind == NodeKind::String)
+        return evaluateCallProcess(call, pos);
+      
+      // otherwise searches for a builtin function with that name
+
+      auto name = std::string(call.name.value.str);
+
+      if (name == "print")
+        return builtinPrint(call, pos);
+      else if (name == "floor")
+        return builtinFloor(call);
+      else
+        throw Error({"unknown builtin function"}, call.name.pos);
+      
+      return Node::none(pos);
+    }
+
+    private: Node evaluateCallProcess(CallNode call, Position pos)
+    {
+      panic("evaluateCallProcess not implemented yet");
+      return Node::none(pos);
+    }
+
+    private: Node builtinPrint(CallNode call, Position pos)
+    {
+      // printing all arguments without separation and flushing
+      for (auto arg : call.args)
+        iprintf("%s", arg.toString().c_str());
+      
+      fflush(stdout);
+      return Node::none(pos);
+    }
+
+    private: Node builtinFloor(CallNode call)
+    {
+      expectArgsCount(call, 1);
+
+      // truncating the float value
+      auto expr = expectType(evaluateNode(call.args[0]), NodeKind::Num, call.args[0].pos);
+      expr.value.num = uint64_t(expr.value.num);
+
+      return expr;
+    }
+
+    private: void expectArgsCount(CallNode call, uint64_t count)
+    {
+      if (call.args.size() != count)
+        throw Error({"expected args ", std::to_string(count), " (found ", std::to_string(call.args.size()), ")"}, call.name.pos);
+    }
+
+    private: Node expectType(Node node, NodeKind type, Position pos)
+    {
+      if (node.kind != type)
+        throw Error({"expected a value with type ", Node::kindToString(type), " (found ", Node::kindToString(node.kind), ")"}, pos);
+      
+      return node;
+    }
   };
 }

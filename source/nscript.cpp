@@ -6,10 +6,11 @@ std::string NScript::Node::toString()
 
   switch (kind)
   {
-    case NodeKind::ConstNum:    return cutTrailingZeros(std::to_string(value.num));
-    case NodeKind::ConstString: return "'" + Parser::escapedToEscapes(value.str) + "'";
+    case NodeKind::Num:         return cutTrailingZeros(std::to_string(value.num));
+    case NodeKind::String:      return "'" + Parser::escapedToEscapes(value.str) + "'";
     case NodeKind::Bin:         return value.bin->left.toString() + " " + value.bin->op.toString() + " " + value.bin->right.toString();
     case NodeKind::Una:         return value.una->op.toString() + value.una->term.toString();
+    case NodeKind::Assign:      return value.assign->name.toString() + " = " + value.assign->expr.toString();
 
     case NodeKind::Call:
       for (uint64_t i = 0; i < value.call->args.size(); i++)
@@ -30,7 +31,9 @@ std::string NScript::Node::toString()
     case NodeKind::LPar:
     case NodeKind::RPar:
     case NodeKind::Comma:
+    case NodeKind::Eq:
     case NodeKind::Bad:
+    case NodeKind::None:
     case NodeKind::Identifier:  return value.str;
     case NodeKind::Eof:         return "<eof>";
   }
@@ -56,7 +59,7 @@ NScript::Node NScript::Parser::nextToken()
     t = collectNumToken();
   else if (c == '\'')
     t = collectStringToken();
-  else if (arrayContains({'+', '-', '*', '/', '(', ')', ','}, c))
+  else if (arrayContains({'+', '-', '*', '/', '(', ')', ',', '='}, c))
     t = Node(NodeKind(c), (NodeValue) { .str = cstringRealloc(std::string(1, c).c_str()) }, curPos());
 
   exprIndex++;
@@ -80,9 +83,9 @@ NScript::Node NScript::Parser::collectStringToken()
   exprIndex++;
 
   if (eof())
-    throw ParserError({"unclosed string"}, Position(startPos, exprIndex));
+    throw Error({"unclosed string"}, Position(startPos, exprIndex));
 
-  return Node(NodeKind::ConstString, (NodeValue) { .str = cstringRealloc(escapesToEscaped(seq, pos).c_str()) }, pos);
+  return Node(NodeKind::String, (NodeValue) { .str = cstringRealloc(escapesToEscaped(seq, pos).c_str()) }, pos);
 }
 
 NScript::Node NScript::Parser::collectNumToken()
@@ -95,11 +98,11 @@ NScript::Node NScript::Parser::collectNumToken()
 
   // inconsistent numbers like 0.0.1 or 1.2.3 etc
   if (countOccurrences(seq, '.') > 1)
-    throw ParserError({"number cannot include more than one dot"}, pos);
+    throw Error({"number cannot include more than one dot"}, pos);
   
   // when the user wrote something like 0. or 2. etc
   if (seq[seq.length() - 1] == '.')
-    throw ParserError(
+    throw Error(
       {"number cannot end with a dot (correction: `", seq.substr(0, seq.length() - 1), "`)"},
       pos
     );
@@ -110,39 +113,28 @@ NScript::Node NScript::Parser::collectNumToken()
 
   // when the next char is an identifier, the user wrote something like 123hello or 123_
   if (!eof(+1) && isIdentifierChar(curChar(+1), false))
-    throw ParserError(
+    throw Error(
       {"number cannot include part of identifier (correction: `", seq, " ", std::string(1, curChar(+1)), "...`)"},
       Position(pos.startPos, curPos(+1).endPos)
     );
 
-  return Node(NodeKind::ConstNum, value, pos);
+  return Node(NodeKind::Num, value, pos);
 }
 
 NScript::Node NScript::Parser::convertToKeywordWhenPossible(Node token)
 {
-  return token;
-
-  // if (token.kind != NodeKind::Identifier)
-  //  return token;
+  if (token.kind != NodeKind::Identifier)
+   return token;
   
-  // if (token.value.str == std::string("true"))
-  //   token.kind = NodeKind::True;
-  // else if (token.value.str == std::string("false"))
-  //   token.kind = NodeKind::False;
+  if (token.value.str == std::string("none"))
+    token.kind = NodeKind::None;
 
-  // return token;
+  return token;
 }
 
 NScript::Node NScript::Parser::collectIdentifierToken()
 {
   auto startPos = exprIndex;
-  
-  // cstringRealloc is called to have the guarantee that the pointer will not be implicitly deallocated in any case.
-  // from https://codeql.github.com/codeql-query-help/cpp/cpp-return-c-str-of-std-string/
-  // ```
-  //  The pointer is only safe to use while the std::string is still in scope.
-  //  When the std::string goes out of scope, its destructor is called and the memory is deallocated, so it is no longer safe to use the pointer.
-  // ```
   auto value    = (NodeValue) {
     .str = cstringRealloc(collectSequence([this] {
       return isIdentifierChar(curChar(), false);
@@ -194,8 +186,9 @@ NScript::Node NScript::Parser::expectTerm()
   {
     // simple token
     case NodeKind::Identifier:
-    case NodeKind::ConstNum:
-    case NodeKind::ConstString:
+    case NodeKind::Num:
+    case NodeKind::String:
+    case NodeKind::None:
       term = prevToken;
       break;
 
@@ -213,19 +206,33 @@ NScript::Node NScript::Parser::expectTerm()
       break;
     
     default:
-      throw ParserError({"unexpected token (found `", prevToken.toString(), "`)"}, prevToken.pos);
+      throw Error({"unexpected token (found `", prevToken.toString(), "`)"}, prevToken.pos);
   }
 
   if (curToken.kind == NodeKind::LPar)
     term = collectCallNode(term);
+  else if (curToken.kind == NodeKind::Eq)
+    term = collectAssignNode(term);
   
   return term;
 }
 
+NScript::Node NScript::Parser::collectAssignNode(Node name)
+{
+  if (name.kind != NodeKind::Identifier)
+    throw Error({"expected an identifier when assigning"}, name.pos);
+
+  // eating `=`
+  advance();
+  auto expr = expectExpression();
+
+  return Node(NodeKind::Assign, (NodeValue) { .assign = new AssignNode(name, expr) }, Position(name.pos.startPos, expr.pos.endPos));
+}
+
 NScript::Node NScript::Parser::collectCallNode(Node name)
 {
-  if (name.kind != NodeKind::Identifier && name.kind != NodeKind::ConstString)
-    throw ParserError({"expected string or identifier call name"}, name.pos);
+  if (name.kind != NodeKind::Identifier && name.kind != NodeKind::String)
+    throw Error({"expected string or identifier call name"}, name.pos);
   
   auto startPos = curToken.pos.startPos;
   auto args     = std::vector<Node>();
@@ -236,7 +243,7 @@ NScript::Node NScript::Parser::collectCallNode(Node name)
   while (true)
   {
     if (eofToken())
-      throw ParserError({"unclosed call parameters list"}, Position(startPos, prevToken.pos.endPos));
+      throw Error({"unclosed call parameters list"}, Position(startPos, prevToken.pos.endPos));
     
     if (curToken.kind == NodeKind::RPar)
     {

@@ -147,9 +147,11 @@ void NDSConsole::returnPrompt()
   {
     // processing the prompted command
     auto result = processCommand(*promptBuffer);
-    iprintf("\n%s\n", result.toString().c_str());
+
+    if (result.kind != NScript::NodeKind::None)
+      iprintf("\n%s\n", result.toString().c_str());
   }
-  catch (const NScript::ParserError& e)
+  catch (const NScript::Error& e)
   {
     printPromptParsingError(e);
   }
@@ -166,7 +168,7 @@ void NDSConsole::returnPrompt()
   printPromptPrefix();
 }
 
-void NDSConsole::printPromptParsingError(NScript::ParserError e)
+void NDSConsole::printPromptParsingError(NScript::Error e)
 {
   auto promptLength = getPromptPrefix().length();
 
@@ -190,10 +192,8 @@ void NDSConsole::printPromptParsingError(NScript::ParserError e)
 NScript::Node NDSConsole::processCommand(std::string command)
 {
   NScript::Parser parser(command);
-  return parser.parse();
- 
-  // NScript::Evaluator evaluator(parser);
-  // return evaluator.evaluate();
+  
+  return evaluator.evaluateNode(parser.parse());
 }
 
 void NDSConsole::printBlinkingCursor(uint64_t frame, bool printCursor)
