@@ -281,10 +281,10 @@ std::string NScript::Parser::escapesToEscaped(std::string s, Position pos)
   return t;
 }
 
-NScript::Node NScript::Evaluator::expectType(Node node, NodeKind type, Position pos)
+NScript::Node NScript::Evaluator::expectType(Node node, NodeKind type)
 {
   if (node.kind != type)
-    throw Error({"expected a value with type ", Node::kindToString(type), " (found ", Node::kindToString(node.kind), ")"}, pos);
+    throw Error({"expected a value with type ", Node::kindToString(type), " (found ", Node::kindToString(node.kind), ")"}, node.pos);
   
   return node;
 }
@@ -300,20 +300,19 @@ NScript::Node NScript::Evaluator::builtinFloor(CallNode call)
   expectArgsCount(call, 1);
 
   // truncating the float value
-  auto expr = expectType(evaluateNode(call.args[0]), NodeKind::Num, call.args[0].pos);
+  auto expr = expectType(evaluateNode(call.args[0]), NodeKind::Num);
   expr.value.num = uint64_t(expr.value.num);
 
   return expr;
 }
 
-NScript::Node NScript::Evaluator::builtinPrint(CallNode call, Position pos)
+void NScript::Evaluator::builtinPrint(CallNode call)
 {
   // printing all arguments without separation and flushing
   for (auto arg : call.args)
     iprintf("%s", arg.toString().c_str());
   
   fflush(stdout);
-  return Node::none(pos);
 }
 
 NScript::Node NScript::Evaluator::evaluateCallProcess(CallNode call, Position pos)
@@ -332,9 +331,15 @@ NScript::Node NScript::Evaluator::evaluateCall(CallNode call, Position pos)
   auto name = std::string(call.name.value.str);
 
   if (name == "print")
-    return builtinPrint(call, pos);
+    builtinPrint(call);
   else if (name == "floor")
     return builtinFloor(call);
+  else if (name == "cd")
+    builtinCd(call);
+  else if (name == "clear")
+    builtinClear(call);
+  else if (name == "shutdown")
+    builtinShutdown(call);
   else
     throw Error({"unknown builtin function"}, call.name.pos);
   
@@ -455,4 +460,57 @@ NScript::Node NScript::Evaluator::evaluateNode(Node node)
     case NodeKind::Call:       return evaluateCall(*node.value.call, node.pos);
     default:                   panic("unimplemented evaluateNode for some NodeKind"); return Node::none(node.pos);
   }
+}
+
+std::string NScript::Evaluator::expectStringLengthAndGetString(Node node, std::function<bool(uint64_t)> f)
+{
+  auto s = std::string(node.value.str);
+
+  if (!f(s.length()))
+    throw Error({"expected a string with a different length"}, node.pos);
+  
+  return s;
+}
+
+void NScript::Evaluator::builtinCd(CallNode call)
+{
+  expectArgsCount(call, 1);
+
+  // expecting the only 1 arg is a string and expecting it to be a non-empty one
+  auto arg            = call.args[0];
+  auto dir            = expectStringLengthAndGetString(expectType(evaluateNode(arg), NodeKind::String), [] (uint64_t l) { return l > 0; });
+  auto isRelativePath = dir[0] != '/';
+
+  // dir must always have a character `/` at the end of the string
+  if (dir[dir.length() - 1] != '/')
+    dir.push_back('/');
+
+  if (isRelativePath)
+    dir = cwd + dir;
+
+  // opening dir
+  DIR* openedDir = opendir(dir.c_str());
+
+  // checking for dir correctly opened
+  if (!openedDir)
+    throw Error({"unknown dir"}, arg.pos);
+  
+  // closing old dir
+  closedir(openedCwd);
+
+  // changing dir
+  cwd = dir;
+  openedCwd = openedDir;
+}
+
+void NScript::Evaluator::builtinClear(CallNode call)
+{
+  expectArgsCount(call, 0);
+  consoleClear();
+}
+
+void NScript::Evaluator::builtinShutdown(CallNode call)
+{
+  expectArgsCount(call, 0);
+  systemShutDown();
 }

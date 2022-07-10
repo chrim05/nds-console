@@ -5,6 +5,8 @@
 #include <c++/12.1.0/vector>
 #include <c++/12.1.0/functional>
 #include <c++/12.1.0/utility>
+#include <fat.h>
+#include <dirent.h>
 
 #include "basics.h"
 
@@ -391,11 +393,21 @@ namespace NScript
 
   class Evaluator
   {
-    private: std::vector<KeyPair<std::string, Node>> map;
+    private: DIR*                                    openedCwd; // current working directory pointer
+    public:  std::string                             cwd;       // current working directory
+    public:  std::vector<KeyPair<std::string, Node>> map;       // declared variables map
 
     public: Evaluator()
     {
+      if (!fatInitDefault())
+        panic("could not initialize fat lib with default settings");
+
       this->map = std::vector<KeyPair<std::string, Node>>();
+      this->cwd = "/";
+      this->openedCwd = opendir(cwd.c_str());
+
+      if (!openedCwd)
+        panic("could not open root dir");
     }
 
     public: Node evaluateNode(Node node);
@@ -416,12 +428,20 @@ namespace NScript
 
     private: Node evaluateCallProcess(CallNode call, Position pos);
 
-    private: Node builtinPrint(CallNode call, Position pos);
+    private: void builtinPrint(CallNode call);
 
     private: Node builtinFloor(CallNode call);
 
+    private: void builtinCd(CallNode call);
+
+    private: void builtinClear(CallNode call);
+
+    private: void builtinShutdown(CallNode call);
+
     private: void expectArgsCount(CallNode call, uint64_t count);
 
-    private: Node expectType(Node node, NodeKind type, Position pos);
+    private: Node expectType(Node node, NodeKind type);
+
+    private: std::string expectStringLengthAndGetString(Node node, std::function<bool(uint64_t)> f);
   };
 }

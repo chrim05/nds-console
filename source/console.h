@@ -66,7 +66,7 @@ class NDSConsole
 
   private: inline std::string getPromptPrefix()
   {
-    return "/ $ ";
+    return evaluator.cwd + " $ ";
   }
 
   private: void printPromptParsingError(NScript::Error e);
