@@ -1,12 +1,5 @@
 #pragma once
 
-// Compiling for ARM9
-
-#undef ARM7
-#undef ARM9
-
-#define ARM9
-
 #include <nds.h>
 #include <nds/arm9/console.h>
 #include <c++/12.1.0/vector>

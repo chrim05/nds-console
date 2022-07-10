@@ -1,12 +1,5 @@
 #pragma once
 
-// Compiling for ARM9
-
-#undef ARM7
-#undef ARM9
-
-#define ARM9
-
 #include <nds.h>
 #include <c++/12.1.0/string>
 #include <c++/12.1.0/vector>
@@ -405,176 +398,30 @@ namespace NScript
       this->map = std::vector<KeyPair<std::string, Node>>();
     }
 
-    public: Node evaluateNode(Node node)
-    {
-      switch (node.kind)
-      {
-        case NodeKind::Num:
-        case NodeKind::String:
-        case NodeKind::None:       return node;
-        case NodeKind::Bin:        return evaluateBin(*node.value.bin);
-        case NodeKind::Una:        return evaluateUna(*node.value.una);
-        case NodeKind::Identifier: return evaluateIdentifier(node);
-        case NodeKind::Assign:     return evaluateAssign(*node.value.assign, node.pos);
-        case NodeKind::Call:       return evaluateCall(*node.value.call, node.pos);
-        default:                   panic("unimplemented evaluateNode for some NodeKind"); return Node::none(node.pos);
-      }
-    }
+    public: Node evaluateNode(Node node);
 
-    private: Node evaluateIdentifier(Node identifier)
-    {
-      for (const auto& kv : map)
-        if (kv.key == std::string(identifier.value.str))
-          return kv.val;
-      
-      throw Error({"unknown variable"}, identifier.pos);
-    }
+    private: Node evaluateIdentifier(Node identifier);
 
-    private: Node evaluateBin(BinNode bin)
-    {
-      auto left  = evaluateNode(bin.left);
-      auto right = evaluateNode(bin.right);
+    private: Node evaluateBin(BinNode bin);
 
-      if (left.kind != right.kind)
-        throw Error(
-          {"unkwnon bin `", bin.op.toString(), "` between different types (`", Node::kindToString(left.kind), "` and `", Node::kindToString(right.kind), "`)"},
-          bin.op.pos
-        );
-      
-      switch (left.kind)
-      {
-        case NodeKind::Num:
-          left.value.num = evaluateOperationNum(bin.op.kind, left.value.num, right.value.num, right.pos);
-          break;
-        
-        case NodeKind::String:
-          left.value.str = evaluateOperationStr(bin.op, left.value.str, right.value.str);
-          break;
+    private: float64 evaluateOperationNum(NodeKind op, float64 l, float64 r, Position rPos);
 
-        default:
-          throw Error(
-            {"type `", Node::kindToString(left.kind), "` does not support bin"},
-            bin.op.pos
-          );
-      }
+    private: cstring_t evaluateOperationStr(Node op, cstring_t l, cstring_t r);
 
-      left.pos.endPos = right.pos.endPos;
-      return left;
-    }
+    private: Node evaluateUna(UnaNode una);
 
-    private: float64 evaluateOperationNum(NodeKind op, float64 l, float64 r, Position rPos)
-    {
-      switch (op)
-      {
-        case NodeKind::Plus:  return l + r;
-        case NodeKind::Minus: return l - r;
-        case NodeKind::Star:  return l * r;
-        case NodeKind::Slash:
-          if (r == 0)
-            throw Error({"dividing by 0"}, rPos);
+    private: Node evaluateAssign(AssignNode assign, Position pos);
 
-          return l / r;
-        
-        default: panic("unreachable"); return 0;
-      }
-    }
+    private: Node evaluateCall(CallNode call, Position pos);
 
-    private: cstring_t evaluateOperationStr(Node op, cstring_t l, cstring_t r)
-    {
-      if (op.kind != NodeKind::Plus)
-        throw Error({"string does not support bin `", Node::kindToString(op.kind), "`"}, op.pos);
+    private: Node evaluateCallProcess(CallNode call, Position pos);
 
-      return cstringRealloc((std::string(l) + r).c_str());
-    }
+    private: Node builtinPrint(CallNode call, Position pos);
 
-    private: Node evaluateUna(UnaNode una)
-    {
-      auto term = evaluateNode(una.term);
+    private: Node builtinFloor(CallNode call);
 
-      if (term.kind != NodeKind::Num)
-        throw Error({"type `", Node::kindToString(term.kind), "` does not support unary `", Node::kindToString(una.op.kind), "`"}, term.pos);
-      
-      term.value.num *= una.op.kind == NodeKind::Minus ? -1 : +1;
-      return term;
-    }
+    private: void expectArgsCount(CallNode call, uint64_t count);
 
-    private: Node evaluateAssign(AssignNode assign, Position pos)
-    {
-      auto name = std::string(assign.name.value.str);
-      auto expr = evaluateNode(assign.expr);
-
-      for (uint64_t i = 0; i < map.size(); i++)
-        if (map[i].key == name)
-        {
-          // the variable is already declared (overwrites old value)
-          map[i].val = expr;
-          return Node::none(pos);
-        }
-
-      // the variable is not declared yet (appends a new definition)
-      map.push_back(KeyPair<std::string, Node>(name, expr));
-      return Node::none(pos);
-    }
-
-    private: Node evaluateCall(CallNode call, Position pos)
-    {
-      // when the call's name is a string, searches for a process with that filename
-      if (call.name.kind == NodeKind::String)
-        return evaluateCallProcess(call, pos);
-      
-      // otherwise searches for a builtin function with that name
-
-      auto name = std::string(call.name.value.str);
-
-      if (name == "print")
-        return builtinPrint(call, pos);
-      else if (name == "floor")
-        return builtinFloor(call);
-      else
-        throw Error({"unknown builtin function"}, call.name.pos);
-      
-      return Node::none(pos);
-    }
-
-    private: Node evaluateCallProcess(CallNode call, Position pos)
-    {
-      panic("evaluateCallProcess not implemented yet");
-      return Node::none(pos);
-    }
-
-    private: Node builtinPrint(CallNode call, Position pos)
-    {
-      // printing all arguments without separation and flushing
-      for (auto arg : call.args)
-        iprintf("%s", arg.toString().c_str());
-      
-      fflush(stdout);
-      return Node::none(pos);
-    }
-
-    private: Node builtinFloor(CallNode call)
-    {
-      expectArgsCount(call, 1);
-
-      // truncating the float value
-      auto expr = expectType(evaluateNode(call.args[0]), NodeKind::Num, call.args[0].pos);
-      expr.value.num = uint64_t(expr.value.num);
-
-      return expr;
-    }
-
-    private: void expectArgsCount(CallNode call, uint64_t count)
-    {
-      if (call.args.size() != count)
-        throw Error({"expected args ", std::to_string(count), " (found ", std::to_string(call.args.size()), ")"}, call.name.pos);
-    }
-
-    private: Node expectType(Node node, NodeKind type, Position pos)
-    {
-      if (node.kind != type)
-        throw Error({"expected a value with type ", Node::kindToString(type), " (found ", Node::kindToString(node.kind), ")"}, pos);
-      
-      return node;
-    }
+    private: Node expectType(Node node, NodeKind type, Position pos);
   };
 }

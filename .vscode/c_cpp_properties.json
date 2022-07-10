@@ -3,15 +3,15 @@
         {
             "name": "Linux",
             "includePath": [
-                "/opt/devkitpro/devkitARM/arm-none-eabi/include",
-                "/opt/devkitpro/libnds/include",
+                "C:/devkitpro/devkitARM/arm-none-eabi/include",
+                "C:/devkitpro/libnds/include",
                 "${workspaceFolder}/**"
             ],
-            "defines": [],
-            "compilerPath": "/usr/bin/gcc",
+            "defines": ["ARM9"],
+            "compilerPath": "C:/devkitPro/devkitARM/bin/arm-none-eabi-g++.exe",
             "cStandard": "gnu17",
             "cppStandard": "gnu++14",
-            "intelliSenseMode": "linux-gcc-x64"
+            "intelliSenseMode": "windows-gcc-x64"
         }
     ],
     "version": 4

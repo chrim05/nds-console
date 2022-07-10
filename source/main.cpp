@@ -1,10 +1,3 @@
-// Compiling for ARM9
-
-#undef ARM7
-#undef ARM9
-
-#define ARM9
-
 // Devkitpro headers and ARM9 libc++
 
 #include <nds.h>
@@ -23,7 +16,7 @@ int main()
   // initialize video
   videoSetMode(MODE_0_2D);
   videoSetModeSub(MODE_0_2D);
-
+  
   // initialize vram
   vramSetPrimaryBanks(VRAM_A_MAIN_BG, VRAM_B_MAIN_SPRITE, VRAM_C_SUB_BG, VRAM_D_SUB_SPRITE);
 
@@ -62,6 +55,7 @@ int main()
       case KEY_A:     console.returnPrompt();                                break;
     }
 
+    // printing the prompt
     console.flushPromptBuffer(frame, true);
     swiWaitForVBlank();
 	}
