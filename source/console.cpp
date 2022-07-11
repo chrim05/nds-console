@@ -6,19 +6,19 @@ void NDSConsole::processVirtualKey(int key)
   switch (key)
   {
     case DVK_LEFT:
-      moveCursorIndex(CursorMovingDirection::Left);
+      moveCursorIndex(MovingDirection2D::LeftOrUp);
       break;
     
     case DVK_RIGHT:
-      moveCursorIndex(CursorMovingDirection::Right);
+      moveCursorIndex(MovingDirection2D::RightOrDown);
       break;
 
     case DVK_UP:
-      moveRecentBuffer(BufferMovingDirection::Up);
+      moveRecentBuffer(MovingDirection2D::LeftOrUp);
       break;
     
     case DVK_DOWN:
-      moveRecentBuffer(BufferMovingDirection::Down);
+      moveRecentBuffer(MovingDirection2D::RightOrDown);
       break;
 
     case DVK_BACKSPACE:
@@ -102,33 +102,38 @@ void NDSConsole::flushPromptBuffer(uint64_t frame, bool printCursor)
     iprintf(" ");
 }
 
-void NDSConsole::moveCursorIndex(CursorMovingDirection direction)
+void NDSConsole::moveCursorIndex(MovingDirection2D direction)
 {
   // the cursor index is at the left edge (cannot be moved again)
-  if (direction == CursorMovingDirection::Left && promptCursorIndex == 0)
+  if (direction == MovingDirection2D::LeftOrUp && promptCursorIndex == 0)
     return;
   
   // the cursor index is at the right edge (cannot be moved again)
-  if (direction == CursorMovingDirection::Right && promptCursorIndex == promptBuffer->length())
+  if (direction == MovingDirection2D::RightOrDown && promptCursorIndex == promptBuffer->length())
     return;
   
   promptCursorIndex += uint64_t(direction);
 }
 
-void NDSConsole::moveRecentBuffer(BufferMovingDirection direction)
+void NDSConsole::moveRecentBuffer(MovingDirection2D direction)
 {
   // the reecent buffer index is at the upper edge (cannot be moved again)
-  if (direction == BufferMovingDirection::Up && recentPromptsIndex == 0)
+  if (direction == MovingDirection2D::LeftOrUp && recentPromptsIndex == 0)
     return;
   
   // the recenet buffer index is at the down edge (cannot be moved again)
-  if (direction == BufferMovingDirection::Down && recentPromptsIndex == recentPrompts.size() - 1)
+  if (direction == MovingDirection2D::RightOrDown && recentPromptsIndex == recentPrompts.size() - 1)
     return;
   
   // updating the recent prompts index and setting up the new prompt buffer
   recentPromptsIndex     += uint64_t(direction);
   this->promptBuffer      = recentPrompts[recentPromptsIndex];
   this->promptCursorIndex = promptBuffer->length();
+}
+
+void NDSConsole::scrollScreen(MovingDirection2D direction)
+{
+  // unimplemented yet
 }
 
 void NDSConsole::returnPrompt()
@@ -152,6 +157,7 @@ void NDSConsole::returnPrompt()
     // processing the prompted command
     auto result = processCommand(*promptBuffer);
 
+    // when the expression returns `none` it's not shown up
     if (result.kind != NScript::NodeKind::None)
       iprintf("\n%s\n", result.toString().c_str());
   }

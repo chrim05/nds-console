@@ -11,6 +11,7 @@ typedef char void_t;
 
 void panic(std::string msg);
 
+// NOTE: `s` won't be freed
 // in this project cstringRealloc is called on .c_str() to have the guarantee that the pointer will not be implicitly deallocated in any case.
 // from https://codeql.github.com/codeql-query-help/cpp/cpp-return-c-str-of-std-string/
 // ```
@@ -46,6 +47,8 @@ template <typename T> std::string joinArray(std::string sep, std::vector<T> arr,
 }
 
 std::string addTrailingSlashToPath(std::string dir);
+
+void removeAllInsideDir(std::string path);
 
 template<typename Tk, typename Tv> class KeyPair
 {

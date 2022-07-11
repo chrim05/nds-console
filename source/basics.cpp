@@ -1,6 +1,7 @@
 #include "basics.h"
 
 #include <nds.h>
+#include <dirent.h>
 
 void panic(std::string msg)
 {
@@ -81,4 +82,25 @@ std::string addTrailingSlashToPath(std::string dir)
     dir.push_back('/');
   
   return dir;
+}
+
+void removeAllInsideDir(std::string path)
+{
+  auto dir = opendir(path.c_str());
+
+  if (!dir)
+    return;
+
+  // iterating the directory
+  while (auto entry = readdir(dir))
+  {
+    auto fullElemPath = path + '/' + entry->d_name;
+
+    if (entry->d_type == DT_DIR)
+      removeAllInsideDir(fullElemPath);
+    else
+      remove(fullElemPath.c_str());
+  }
+  
+  closedir(dir);
 }

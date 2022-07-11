@@ -331,6 +331,12 @@ NScript::Node NScript::Evaluator::evaluateCall(CallNode call, Position pos)
     builtinClear(call);
   else if (name == "shutdown")
     builtinShutdown(call);
+  else if (name == "ls")
+    builtinLs(call);
+  else if (name == "rmdir")
+    builtinRmDir(call);
+  else if (name == "mkdir")
+    builtinMkDir(call);
   else
     throw Error({"unknown builtin function"}, call.name.pos);
   
@@ -469,18 +475,15 @@ void NScript::Evaluator::builtinCd(CallNode call)
 
   // expecting the only 1 arg is a string and expecting it to be a non-empty one
   auto arg            = call.args[0];
-  auto dir            = expectStringLengthAndGetString(expectType(evaluateNode(arg), NodeKind::String), [] (uint64_t l) { return l > 0; });
-  auto isRelativePath = dir[0] != '/';
-
-  // dir must always have a character `/` at the end of the string
-  dir = addTrailingSlashToPath(dir);
-
-  // dir = fullpath(dir)
-  if (isRelativePath)
-    dir = cwd + dir;
+  auto dir            = expectNonEmptyStringAndGetString(expectType(evaluateNode(arg), NodeKind::String));
+  
+  dir = getFullPath(dir);
 
   // opening dir
-  DIR* openedDir = opendir(dir.c_str());
+  auto openedDir = opendir(dir.c_str());
+
+  // reinterpreting the path to get a simplified one
+  dir = getRealPath(dir);
 
   // checking for dir correctly opened
   if (!openedDir)
@@ -490,7 +493,7 @@ void NScript::Evaluator::builtinCd(CallNode call)
   closedir(openedDir);
 
   // changing dir
-  cwd = getRealPath(dir);
+  cwd = dir;
 }
 
 void NScript::Evaluator::builtinClear(CallNode call)
@@ -503,4 +506,67 @@ void NScript::Evaluator::builtinShutdown(CallNode call)
 {
   expectArgsCount(call, 0);
   systemShutDown();
+}
+
+void NScript::Evaluator::builtinLs(CallNode call)
+{
+  auto dir = opendir(cwd.c_str());
+
+  // iterating the directory
+  while (auto entry = readdir(dir))
+    iprintf(
+      "%s (%s)\n", entry->d_name,
+      // not all file systems support dirent.d_type, when possible prints:
+      //  `file`   -> for regular files
+      //  `folder` -> for directories
+      //  `other`  -> for other elment's types (see https://ftp.gnu.org/old-gnu/Manuals/glibc-2.2.5/html_node/Directory-Entries.html)
+      //  `?`      -> for unknown elements (they could be files, folders or other)
+      entry->d_type == DT_REG ? "file" : entry->d_type == DT_DIR ? "folder" : entry->d_type == DT_UNKNOWN ? "?" : "other");
+  
+  closedir(dir);
+}
+
+void NScript::Evaluator::builtinRmDir(CallNode call)
+{
+  expectArgsCount(call, 1);
+
+  auto arg  = call.args[0];
+  auto path = getFullPath(expectNonEmptyStringAndGetString(evaluateNode(arg)));
+
+  // removing all files and sub folders into directory (rmdir can only remove empty folders)
+  removeAllInsideDir(path);
+
+  // removing the empty folder
+  if (rmdir(path.c_str()))
+    throw Error({"unable to delete the folder `", path, "`"}, arg.pos);
+}
+
+void NScript::Evaluator::builtinMkDir(CallNode call)
+{
+  expectArgsCount(call, 1);
+
+  auto arg  = call.args[0];
+  auto path = getFullPath(expectNonEmptyStringAndGetString(evaluateNode(arg)));
+
+  if (mkdir(path.c_str(), S_IRUSR | S_IWUSR | S_IXUSR))
+    throw Error({"unable to make the folder `", path, "`"}, arg.pos);
+}
+
+std::string NScript::Evaluator::expectNonEmptyStringAndGetString(Node node)
+{
+  return expectStringLengthAndGetString(node, [] (uint64_t l) { return l > 0; });
+}
+
+std::string NScript::Evaluator::getFullPath(std::string path)
+{
+  auto isRelativePath = path[0] != '/';
+
+  // dir must always have a character `/` at the end of the string
+  path = addTrailingSlashToPath(path);
+
+  // when relative, adds the parent's folder's path
+  if (isRelativePath)
+    path = cwd + path;
+  
+  return path;
 }

@@ -36,7 +36,7 @@ int main()
 
 	NDSConsole console(&printConsole, &virtualKeyboard);
 
-  iprintf("Nintendo DS Console ARM9");
+  iprintf("Nintendo DS Console ARM9\n");
   console.printPromptPrefix();
  
 	for (uint64_t frame = 0; true; frame++)
@@ -57,12 +57,14 @@ int main()
     // processing the physical button keys
     switch (buttonKey)
     {
-      case KEY_LEFT:  console.moveCursorIndex(CursorMovingDirection::Left);  break;
-      case KEY_RIGHT: console.moveCursorIndex(CursorMovingDirection::Right); break;
-      case KEY_UP:    console.moveRecentBuffer(BufferMovingDirection::Up);   break;
-      case KEY_DOWN:  console.moveRecentBuffer(BufferMovingDirection::Down); break;
-      case KEY_B:     console.removeChar();                                  break;
-      case KEY_A:     console.returnPrompt();                                break;
+      case KEY_LEFT:  console.moveCursorIndex(MovingDirection2D::LeftOrUp);     break;
+      case KEY_RIGHT: console.moveCursorIndex(MovingDirection2D::RightOrDown);  break;
+      case KEY_UP:    console.moveRecentBuffer(MovingDirection2D::LeftOrUp);    break;
+      case KEY_DOWN:  console.moveRecentBuffer(MovingDirection2D::RightOrDown); break;
+      case KEY_B:     console.removeChar();                                     break;
+      case KEY_A:     console.returnPrompt();                                   break;
+      case KEY_X:     console.scrollScreen(MovingDirection2D::LeftOrUp);        break;
+      case KEY_Y:     console.scrollScreen(MovingDirection2D::RightOrDown);     break;
     }
 
     // printing the prompt

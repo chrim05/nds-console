@@ -8,16 +8,10 @@
 #include "basics.h"
 #include "nscript.h"
 
-enum class BufferMovingDirection
+enum class MovingDirection2D
 {
-  Up   = -1,
-  Down =  1,
-};
-
-enum class CursorMovingDirection
-{
-  Left  = -1,
-  Right =  1,
+  LeftOrUp    = -1,
+  RightOrDown =  1,
 };
 
 class NDSConsole
@@ -53,9 +47,11 @@ class NDSConsole
 
   public: void flushPromptBuffer(uint64_t frame, bool printCursor);
 
-  public: void moveCursorIndex(CursorMovingDirection direction);
+  public: void moveCursorIndex(MovingDirection2D direction);
 
-  public: void moveRecentBuffer(BufferMovingDirection direction);
+  public: void moveRecentBuffer(MovingDirection2D direction);
+
+  public: void scrollScreen(MovingDirection2D direction);
 
   public: void returnPrompt();
 

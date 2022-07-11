@@ -430,7 +430,17 @@ namespace NScript
 
     private: void builtinShutdown(CallNode call);
 
+    private: void builtinLs(CallNode call);
+
+    private: void builtinRmDir(CallNode call);
+    
+    private: void builtinMkDir(CallNode call);
+
     private: void expectArgsCount(CallNode call, uint64_t count);
+
+    private: std::string expectNonEmptyStringAndGetString(Node node);
+
+    private: std::string getFullPath(std::string path);
 
     private: Node expectType(Node node, NodeKind type);
 
