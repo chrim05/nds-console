@@ -342,7 +342,7 @@ NScript::Node NScript::Evaluator::evaluateCall(CallNode call, Position pos)
   else if (name == "write")
     builtinWrite(call);
   else if (name == "read")
-    builtinRead(call, pos);
+    return builtinRead(call, pos);
   else
     throw Error({"unknown builtin function"}, call.name.pos);
   

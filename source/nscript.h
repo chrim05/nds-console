@@ -399,7 +399,7 @@ namespace NScript
     public: Evaluator()
     {
       this->map = std::vector<KeyPair<std::string, Node>>();
-      this->cwd = "sd:/";
+      this->cwd = "/";
     }
 
     public: Node evaluateNode(Node node);
