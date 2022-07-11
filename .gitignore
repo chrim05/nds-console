@@ -2,3 +2,4 @@ build/
 .vscode/
 *.elf
 *.nds
+mov_to_sd.bat

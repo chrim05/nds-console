@@ -393,21 +393,13 @@ namespace NScript
 
   class Evaluator
   {
-    private: DIR*                                    openedCwd; // current working directory pointer
     public:  std::string                             cwd;       // current working directory
     public:  std::vector<KeyPair<std::string, Node>> map;       // declared variables map
 
     public: Evaluator()
     {
-      if (!fatInitDefault())
-        panic("could not initialize fat lib with default settings");
-
       this->map = std::vector<KeyPair<std::string, Node>>();
-      this->cwd = "/";
-      this->openedCwd = opendir(cwd.c_str());
-
-      if (!openedCwd)
-        panic("could not open root dir");
+      this->cwd = "sd:/";
     }
 
     public: Node evaluateNode(Node node);

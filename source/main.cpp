@@ -1,7 +1,11 @@
+// For debugging
+// #define DESMUME
+
 // Devkitpro headers and ARM9 libc++
 
 #include <nds.h>
 #include <stdio.h>
+#include <fat.h>
 
 #include "basics.h"
 #include "console.h"
@@ -24,9 +28,15 @@ int main()
   consoleInit(&printConsole, 0, BgType_Text4bpp, BgSize_T_256x256, 2, 0, true, true);
   keyboardInit(&virtualKeyboard, 0, BgType_Text4bpp, BgSize_T_256x512, 14, 0, false, true);
 
+  // initializing fat32 library for file io (on desmume it's not supported)
+#ifndef DESMUME
+  if (!fatInitDefault())
+    panic("fat not initialized correctly");
+#endif
+
 	NDSConsole console(&printConsole, &virtualKeyboard);
 
-	iprintf("Nintendo DS ARM9 Console\n");
+  iprintf("Nintendo DS Console ARM9");
   console.printPromptPrefix();
  
 	for (uint64_t frame = 0; true; frame++)

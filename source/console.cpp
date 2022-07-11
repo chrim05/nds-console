@@ -134,8 +134,12 @@ void NDSConsole::moveRecentBuffer(BufferMovingDirection direction)
 void NDSConsole::returnPrompt()
 {
   // when the prompt buffer is empty there's no need to process the prompted command
-  if (promptBuffer->length() == 0)
+  if (promptBuffer->empty())
     return;
+  
+  // removing the old prompt buffer whether it's empty (returnPrompt worked because promptBuffer was set to another recent prompt)
+  if (recentPrompts[recentPrompts.size() - 1]->empty())
+    recentPrompts.pop_back();
 
   // reprinting the current prompt buffer without the cursor
   flushPromptBuffer(1, false);
@@ -161,6 +165,7 @@ void NDSConsole::returnPrompt()
   this->promptBuffer      = new std::string();
   this->promptCursorIndex = 0;
   
+  // saving the new prompt buffer on the top of recentPrompts
   recentPromptsIndex      = recentPrompts.size();
   recentPrompts.push_back(promptBuffer);
 

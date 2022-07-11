@@ -1,18 +1,15 @@
 #pragma once
 
 #include <stdio.h>
+#include <c++/12.1.0/vector>
+#include <c++/12.1.0/functional>
+#include <c++/12.1.0/algorithm>
 #include <c++/12.1.0/string>
 
 typedef const char* cstring_t;
 typedef char void_t;
 
-inline void panic(std::string msg)
-{
-  printf("[!] sys panic `%s`\n", msg.c_str());
-
-  // keeping opened the process to show the message
-  while(true);
-}
+void panic(std::string msg);
 
 // in this project cstringRealloc is called on .c_str() to have the guarantee that the pointer will not be implicitly deallocated in any case.
 // from https://codeql.github.com/codeql-query-help/cpp/cpp-return-c-str-of-std-string/
@@ -20,22 +17,35 @@ inline void panic(std::string msg)
 //  The pointer is only safe to use while the std::string is still in scope.
 //  When the std::string goes out of scope, its destructor is called and the memory is deallocated, so it is no longer safe to use the pointer.
 // ```
-inline cstring_t cstringRealloc(cstring_t s)
-{
-  // including the null terminator
-  auto temp = new char[strlen(s) + 1];
+cstring_t cstringRealloc(cstring_t s);
 
-  return strcpy(temp, s);
+std::string cutTrailingZeros(std::string s);
+
+// simplifies the paths, examples:
+//  `/foo/bar/../` -> `/foo/`
+//  `/foo/./bar/.` -> `/foo/bar/`
+//  `/foo//bar/`   -> `/foo/bar/`
+std::string getRealPath(std::string path);
+
+std::vector<std::string> splitString(char toSplit, std::string s);
+
+template <typename T> std::string joinArray(std::string sep, std::vector<T> arr, std::function<std::string(T)> toStringRemapper)
+{
+  auto result = std::string();
+
+  for (uint64_t i = 0; i < arr.size(); i++)
+  {
+    // when this is not the first element
+    if (i > 0)
+      result.append(sep);
+
+    result.append(toStringRemapper(arr[i]));
+  }
+
+  return result;
 }
 
-inline std::string cutTrailingZeros(std::string s)
-{
-  return s
-    // removing trailing zeros
-    .erase(s.find_last_not_of('0') + 1, std::string::npos)
-    // removing trailing dot
-    .erase(s.find_last_not_of('.') + 1, std::string::npos);
-}
+std::string addTrailingSlashToPath(std::string dir);
 
 template<typename Tk, typename Tv> class KeyPair
 {

@@ -13,16 +13,7 @@ std::string NScript::Node::toString()
     case NodeKind::Assign:      return value.assign->name.toString() + " = " + value.assign->expr.toString();
 
     case NodeKind::Call:
-      for (uint64_t i = 0; i < value.call->args.size(); i++)
-      {
-        // when this is not the first arg
-        if (i > 0)
-          temp.append(", ");
-
-        temp.append(value.call->args[i].toString());
-      }
-
-      return value.call->name.toString() + "(" + temp + ")";
+      return value.call->name.toString() + "(" + joinArray<Node>(", ", value.call->args, [] (Node arg) { return arg.toString(); }) + ")";
 
     case NodeKind::Plus:
     case NodeKind::Minus:
@@ -284,7 +275,7 @@ std::string NScript::Parser::escapesToEscaped(std::string s, Position pos)
 NScript::Node NScript::Evaluator::expectType(Node node, NodeKind type)
 {
   if (node.kind != type)
-    throw Error({"expected a value with type ", Node::kindToString(type), " (found ", Node::kindToString(node.kind), ")"}, node.pos);
+    throw Error({"expected a value with type `", Node::kindToString(type), "` (found `", Node::kindToString(node.kind), "`)"}, node.pos);
   
   return node;
 }
@@ -292,7 +283,7 @@ NScript::Node NScript::Evaluator::expectType(Node node, NodeKind type)
 void NScript::Evaluator::expectArgsCount(CallNode call, uint64_t count)
 {
   if (call.args.size() != count)
-    throw Error({"expected args ", std::to_string(count), " (found ", std::to_string(call.args.size()), ")"}, call.name.pos);
+    throw Error({"expected `", std::to_string(count), "` args (found `", std::to_string(call.args.size()), "`)"}, call.name.pos);
 }
 
 NScript::Node NScript::Evaluator::builtinFloor(CallNode call)
@@ -482,9 +473,9 @@ void NScript::Evaluator::builtinCd(CallNode call)
   auto isRelativePath = dir[0] != '/';
 
   // dir must always have a character `/` at the end of the string
-  if (dir[dir.length() - 1] != '/')
-    dir.push_back('/');
+  dir = addTrailingSlashToPath(dir);
 
+  // dir = fullpath(dir)
   if (isRelativePath)
     dir = cwd + dir;
 
@@ -493,14 +484,13 @@ void NScript::Evaluator::builtinCd(CallNode call)
 
   // checking for dir correctly opened
   if (!openedDir)
-    throw Error({"unknown dir"}, arg.pos);
+    throw Error({"unknown dir `", dir, "`"}, arg.pos);
   
-  // closing old dir
-  closedir(openedCwd);
+  // closing dir, because we will no longer need it (opened just to check that it existed)
+  closedir(openedDir);
 
   // changing dir
-  cwd = dir;
-  openedCwd = openedDir;
+  cwd = getRealPath(dir);
 }
 
 void NScript::Evaluator::builtinClear(CallNode call)
