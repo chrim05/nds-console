@@ -337,6 +337,12 @@ NScript::Node NScript::Evaluator::evaluateCall(CallNode call, Position pos)
     builtinRmDir(call);
   else if (name == "mkdir")
     builtinMkDir(call);
+  else if (name == "rmfile")
+    builtinRmFile(call);
+  else if (name == "write")
+    builtinWrite(call);
+  else if (name == "read")
+    builtinRead(call, pos);
   else
     throw Error({"unknown builtin function"}, call.name.pos);
   
@@ -477,7 +483,7 @@ void NScript::Evaluator::builtinCd(CallNode call)
   auto arg            = call.args[0];
   auto dir            = expectNonEmptyStringAndGetString(expectType(evaluateNode(arg), NodeKind::String));
   
-  dir = getFullPath(dir);
+  dir = getFullPath(dir, false);
 
   // opening dir
   auto openedDir = opendir(dir.c_str());
@@ -531,14 +537,14 @@ void NScript::Evaluator::builtinRmDir(CallNode call)
   expectArgsCount(call, 1);
 
   auto arg  = call.args[0];
-  auto path = getFullPath(expectNonEmptyStringAndGetString(evaluateNode(arg)));
+  auto path = getFullPath(expectNonEmptyStringAndGetString(evaluateNode(arg)), false);
 
   // removing all files and sub folders into directory (rmdir can only remove empty folders)
   removeAllInsideDir(path);
 
   // removing the empty folder
   if (rmdir(path.c_str()))
-    throw Error({"unable to delete the folder `", path, "`"}, arg.pos);
+    throw Error({"unable to delete folder `", path, "`"}, arg.pos);
 }
 
 void NScript::Evaluator::builtinMkDir(CallNode call)
@@ -546,10 +552,61 @@ void NScript::Evaluator::builtinMkDir(CallNode call)
   expectArgsCount(call, 1);
 
   auto arg  = call.args[0];
-  auto path = getFullPath(expectNonEmptyStringAndGetString(evaluateNode(arg)));
+  auto path = getFullPath(expectNonEmptyStringAndGetString(evaluateNode(arg)), false);
 
-  if (mkdir(path.c_str(), S_IRUSR | S_IWUSR | S_IXUSR))
-    throw Error({"unable to make the folder `", path, "`"}, arg.pos);
+  if (mkdir(path.c_str(), S_IRUSR))
+    throw Error({"unable to make folder `", path, "`"}, arg.pos);
+}
+
+void NScript::Evaluator::builtinRmFile(CallNode call)
+{
+  expectArgsCount(call, 1);
+
+  auto arg  = call.args[0];
+  auto path = getFullPath(expectNonEmptyStringAndGetString(evaluateNode(arg)), true);
+
+  if (remove(path.c_str()))
+    throw Error({"unable to delete file `", path, "`"}, arg.pos);
+}
+
+void NScript::Evaluator::builtinWrite(CallNode call)
+{
+  expectArgsCount(call, 2);
+
+  auto arg     = call.args[0];
+  auto arg2    = call.args[1];
+  auto path    = getFullPath(expectNonEmptyStringAndGetString(evaluateNode(arg)), true);
+  auto content = expectStringLengthAndGetString(evaluateNode(arg2), [] (uint64_t l) { return true; });
+  auto file    = fopen(path.c_str(), "wb");
+
+  if (!file)
+    throw Error({"unable to make file `", path, "`"}, arg.pos);
+  
+  fiprintf(file, content.c_str());
+  fclose(file);
+}
+
+NScript::Node NScript::Evaluator::builtinRead(CallNode call, Position pos)
+{
+  expectArgsCount(call, 1);
+
+  auto arg     = call.args[0];
+  auto path    = getFullPath(expectNonEmptyStringAndGetString(evaluateNode(arg)), true);
+  auto content = std::string();
+  auto file    = fopen(path.c_str(), "rb");
+
+  if (!file)
+    throw Error({"unable to open file `", path, "`"}, arg.pos);
+
+  auto c = getc(file);
+
+  while (c != EOF) {
+    content.push_back(c);
+    c = getc(file);
+  }
+
+  fclose(file);
+  return Node(NodeKind::String, (NodeValue) { .str = cstringRealloc(content.c_str()) }, pos);
 }
 
 std::string NScript::Evaluator::expectNonEmptyStringAndGetString(Node node)
@@ -557,12 +614,13 @@ std::string NScript::Evaluator::expectNonEmptyStringAndGetString(Node node)
   return expectStringLengthAndGetString(node, [] (uint64_t l) { return l > 0; });
 }
 
-std::string NScript::Evaluator::getFullPath(std::string path)
+std::string NScript::Evaluator::getFullPath(std::string path, bool shouldBeFile)
 {
   auto isRelativePath = path[0] != '/';
 
   // dir must always have a character `/` at the end of the string
-  path = addTrailingSlashToPath(path);
+  if (!shouldBeFile)
+    path = addTrailingSlashToPath(path);
 
   // when relative, adds the parent's folder's path
   if (isRelativePath)

@@ -435,12 +435,18 @@ namespace NScript
     private: void builtinRmDir(CallNode call);
     
     private: void builtinMkDir(CallNode call);
+    
+    private: void builtinRmFile(CallNode call);
+
+    private: void builtinWrite(CallNode call);
+
+    private: Node builtinRead(CallNode call, Position pos);
 
     private: void expectArgsCount(CallNode call, uint64_t count);
 
     private: std::string expectNonEmptyStringAndGetString(Node node);
 
-    private: std::string getFullPath(std::string path);
+    private: std::string getFullPath(std::string path, bool shouldBeFile);
 
     private: Node expectType(Node node, NodeKind type);
 

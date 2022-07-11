@@ -94,6 +94,9 @@ void removeAllInsideDir(std::string path)
   // iterating the directory
   while (auto entry = readdir(dir))
   {
+    if (entry->d_name == std::string(".") || entry->d_name == std::string(".."))
+      continue;
+
     auto fullElemPath = path + '/' + entry->d_name;
 
     if (entry->d_type == DT_DIR)
