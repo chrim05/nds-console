@@ -308,8 +308,17 @@ void NScript::Evaluator::builtinPrint(CallNode call)
 
 NScript::Node NScript::Evaluator::evaluateCallProcess(CallNode call, Position pos)
 {
-  panic("evaluateCallProcess not implemented yet");
-  return Node::none(pos);
+  auto processPath = cstringRealloc(getFullPath(expectNonEmptyStringAndGetString(call.name), true).c_str());
+  auto processArgv = new char*[call.args.size() + 2];
+
+  processArgv[0] = (char*)processPath;
+
+  for (uint64_t i = 1; i < call.args.size(); i++)
+    processArgv[i] = (char*)cstringRealloc(expectStringLengthAndGetString(evaluateNode(call.args[i]), [] (uint64_t l) { return true; }).c_str());
+  
+  processArgv[call.args.size()] = (char*)nullptr;
+
+  return Node(NodeKind::Num, (NodeValue) { .num = float64(execv(processPath, processArgv)) }, pos);
 }
 
 NScript::Node NScript::Evaluator::evaluateCall(CallNode call, Position pos)

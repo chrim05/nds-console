@@ -3,12 +3,12 @@
         {
             "name": "Linux",
             "includePath": [
-                "C:/devkitpro/devkitARM/arm-none-eabi/include",
-                "C:/devkitpro/libnds/include",
+                "/opt/devkitpro/devkitARM/arm-none-eabi/include",
+                "/opt/devkitpro/libnds/include",
                 "${workspaceFolder}/**"
             ],
             "defines": ["ARM9"],
-            "compilerPath": "C:/devkitPro/devkitARM/bin/arm-none-eabi-g++.exe",
+            "compilerPath": "/opt/devkitpro/devkitARM/bin/arm-none-eabi-g++",
             "cStandard": "gnu17",
             "cppStandard": "gnu++14",
             "intelliSenseMode": "windows-gcc-x64"
