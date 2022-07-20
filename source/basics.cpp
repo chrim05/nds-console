@@ -9,7 +9,7 @@ void panic(std::string msg)
   fflush(stdout);
 
   // keeping opened the process to show the message
-  while(true) swiWaitForVBlank();
+  while (true) swiWaitForVBlank();
 }
 
 cstring_t cstringRealloc(cstring_t s)
