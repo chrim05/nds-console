@@ -34,13 +34,13 @@ int main()
     panic("fat not initialized correctly");
 #endif
 
-	NDSConsole console(&printConsole, &virtualKeyboard);
+  NDSConsole console(&printConsole, &virtualKeyboard);
 
   iprintf("Nintendo DS Console ARM9\n");
   console.printPromptPrefix();
  
-	for (uint64_t frame = 0; true; frame++)
-	{
+  for (uint64_t frame = 0; true; frame++)
+  {
     // reading the pressed letter
     auto keyboardKey = keyboardUpdate();
 
@@ -52,7 +52,7 @@ int main()
     scanKeys();
 
     // getting the last key state
-		auto buttonKey = keysDown();
+    auto buttonKey = keysDown();
 
     // processing the physical button keys
     switch (buttonKey)
@@ -70,7 +70,7 @@ int main()
     // printing the prompt
     console.flushPromptBuffer(frame, true);
     swiWaitForVBlank();
-	}
+  }
 
-	return 0;
+  return 0;
 }
