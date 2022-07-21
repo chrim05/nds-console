@@ -144,7 +144,10 @@ void NDSConsole::returnPrompt()
   
   // removing the old prompt buffer whether it's empty (returnPrompt worked because promptBuffer was set to another recent prompt)
   if (recentPrompts[recentPrompts.size() - 1]->empty())
+  {
+    delete recentPrompts[recentPrompts.size() - 1];
     recentPrompts.pop_back();
+  }
 
   // reprinting the current prompt buffer without the cursor
   flushPromptBuffer(1, false);

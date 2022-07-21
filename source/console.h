@@ -39,6 +39,12 @@ class NDSConsole
     keyboardShow();
   }
 
+  public: ~NDSConsole()
+  {
+    for (const auto& prompt : recentPrompts)
+      delete prompt;
+  }
+
   public: void processVirtualKey(int key);
 
   public: void insertChar(char c);

@@ -318,7 +318,13 @@ NScript::Node NScript::Evaluator::evaluateCallProcess(CallNode call, Position po
   
   processArgv[call.args.size()] = (char*)nullptr;
 
-  return Node(NodeKind::Num, (NodeValue) { .num = float64(execv(processPath, processArgv)) }, pos);
+  auto result = Node(NodeKind::Num, (NodeValue) { .num = float64(execv(processPath, processArgv)) }, pos);
+
+  // freeing all args including processPath, which is the first arg
+  for (uint64_t i = 0; i < call.args.size(); i++)
+    delete [] processArgv[i];
+
+  return ;
 }
 
 NScript::Node NScript::Evaluator::evaluateCall(CallNode call, Position pos)
